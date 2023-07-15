@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AutoDataTable.Abstractions", "src\AutoDataTable.Abstractions\AutoDataTable.Abstractions.csproj", "{705F1D55-55E6-4D4E-A109-1D8ECEBB202B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AutoDataTable", "src\AutoDataTable\AutoDataTable.csproj", "{75947B7F-80EE-4A85-9426-8CE82847C696}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AutoDataTable.Benchmarks", "src\AutoDataTable.Benchmarks\AutoDataTable.Benchmarks.csproj", "{2A8D6AA7-071B-493E-9732-D80782541593}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AutoDataTable.Tests", "tests\AutoDataTable.Tests\AutoDataTable.Tests.csproj", "{B6AFBB99-D94C-42D8-BC77-6E297407B416}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{705F1D55-55E6-4D4E-A109-1D8ECEBB202B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{705F1D55-55E6-4D4E-A109-1D8ECEBB202B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{705F1D55-55E6-4D4E-A109-1D8ECEBB202B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{705F1D55-55E6-4D4E-A109-1D8ECEBB202B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{75947B7F-80EE-4A85-9426-8CE82847C696}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{75947B7F-80EE-4A85-9426-8CE82847C696}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{75947B7F-80EE-4A85-9426-8CE82847C696}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{75947B7F-80EE-4A85-9426-8CE82847C696}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2A8D6AA7-071B-493E-9732-D80782541593}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2A8D6AA7-071B-493E-9732-D80782541593}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2A8D6AA7-071B-493E-9732-D80782541593}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2A8D6AA7-071B-493E-9732-D80782541593}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B6AFBB99-D94C-42D8-BC77-6E297407B416}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B6AFBB99-D94C-42D8-BC77-6E297407B416}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B6AFBB99-D94C-42D8-BC77-6E297407B416}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B6AFBB99-D94C-42D8-BC77-6E297407B416}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <IncludeBuildOutput>false</IncludeBuildOutput>
+        <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+
+        <!-- NuGet -->
+        <PackageId>AutoDataTable</PackageId>
+        <PackageVersion>1.0.0</PackageVersion>
+        <Authors>Fabrício Gomes</Authors>
+        <Description>Convert objects into DataTable rows</Description>
+        <Copyright>Copyright © Fabrício Gomes 2023</Copyright>
+        <PackageProjectUrl>https://github.com/afegomes/AutoDataTable</PackageProjectUrl>
+        <PackageIcon>icon.png</PackageIcon>
+        <PackageReadmeFile>README.MD</PackageReadmeFile>
+        <RepositoryUrl>https://github.com/afegomes/AutoDataTable</RepositoryUrl>
+        <PackageTags>System.Data, DataTable, DataColumn</PackageTags>
+        <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.0.1" PrivateAssets="all" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\AutoDataTable.Abstractions\AutoDataTable.Abstractions.csproj" PrivateAssets="all" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Include="..\..\README.MD" Pack="true" PackagePath="\" />
+        <None Include="..\..\icon.png" Pack="true" PackagePath="\" />
+        <None Include="$(OutputPath)\AutoDataTable.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+        <None Include="$(OutputPath)\AutoDataTable.Abstractions.dll" Pack="true" PackagePath="lib\netstandard2.0" Visible="false" />
+    </ItemGroup>
+
+</Project>
