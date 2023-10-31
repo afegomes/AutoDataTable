@@ -7,7 +7,7 @@
 
         <!-- NuGet -->
         <PackageId>AutoDataTable</PackageId>
-        <PackageVersion>1.1.0</PackageVersion>
+        <PackageVersion>1.1.1</PackageVersion>
         <Authors>Fabrício Gomes</Authors>
         <Description>Convert objects into DataTable rows</Description>
         <Copyright>Copyright © Fabrício Gomes 2023</Copyright>

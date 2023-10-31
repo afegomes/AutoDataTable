@@ -106,11 +106,13 @@ Distributed under the GPL-3.0 License. See `LICENSE` for more information.
 
 ## Changelog
 
-### 1.1 (2023-10-30)
+### 1.1.1 (2023-10-30)
+* Fixed namespaces for generated parameters
 
+### 1.1.0 (2023-10-30)
 * Added support for structs
 * Factory method can now be placed anywhere
+* Moved attributes to the `AutoDataTable.Core` namespace
 
-### 1.0 (2023-07-30)
-
+### 1.0.0 (2023-07-30)
 First release

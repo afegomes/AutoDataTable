@@ -288,8 +288,7 @@ namespace AutoDataTable
 
         private static void GenerateAddRowMethod(IndentedTextWriter writer, INamespaceOrTypeSymbol classSymbol, ISymbol dataColumnSymbol)
         {
-            var ns = classSymbol.ContainingNamespace?.Name;
-            var fullType = string.IsNullOrEmpty(ns) ? classSymbol.Name : $"{ns}.{classSymbol.Name}";
+            var fullType = GetFullType(classSymbol);
 
             writer.WriteLine($"public static void AddRow(this DataTable table, {fullType} data)");
             writer.WriteLine("{");
@@ -354,6 +353,26 @@ namespace AutoDataTable
             }
 
             return ns;
+        }
+
+        private static string GetFullType(ISymbol symbol)
+        {
+            var name = symbol.Name;
+            var parent = symbol;
+
+            while (true)
+            {
+                parent = parent.ContainingNamespace;
+
+                if (parent is null || string.IsNullOrEmpty(parent.Name))
+                {
+                    break;
+                }
+
+                name = $"{parent.Name}.{name}";
+            }
+
+            return name;
         }
 
         private static string GetTableName(ISymbol attributeSymbol, ISymbol classSymbol)
