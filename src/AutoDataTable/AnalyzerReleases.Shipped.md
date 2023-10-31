@@ -5,6 +5,20 @@
 
 ### New Rules
 
-Rule ID | Category | Severity | Notes
---------|----------|----------|-------
-ADT001  | Design   | Error    | The class should be declared as partial
+| Rule ID | Category | Severity | Notes                                   |
+|---------|----------|----------|-----------------------------------------|
+| ADT001  | Design   | Error    | The class should be declared as partial |
+
+## Release 1.1
+
+### New Rules
+
+| Rule ID | Category | Severity | Notes                                   |
+|---------|----------|----------|-----------------------------------------|
+| ADT002  | Design   | Error    | The method should be declared as static |
+
+### Changed Rules
+
+| Rule ID | Category | Severity | Notes                                    |
+|---------|----------|----------|------------------------------------------|
+| ADT001  | Design   | Error    | The method should be declared as partial |

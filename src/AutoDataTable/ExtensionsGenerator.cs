@@ -2,9 +2,11 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace AutoDataTable
@@ -12,60 +14,77 @@ namespace AutoDataTable
     [Generator]
     public sealed class ExtensionsGenerator : IIncrementalGenerator
     {
-        private const string DataTableAttribute = "AutoDataTable.Abstractions.DataTableAttribute";
-        private const string DataColumnAttribute = "AutoDataTable.Abstractions.DataColumnAttribute";
+        private const string GenerateDataTableAttribute = "AutoDataTable.Core.GenerateDataTableAttribute";
+        private const string DataTableAttribute = "AutoDataTable.Core.DataTableAttribute";
+        private const string DataColumnAttribute = "AutoDataTable.Core.DataColumnAttribute";
 
-        private static readonly DiagnosticDescriptor Adt001 = new DiagnosticDescriptor(id: "ADT001", title: "Class is not partial", messageFormat: "The class should be declared as partial", category: "Design", DiagnosticSeverity.Error, isEnabledByDefault: true);
+        private static readonly DiagnosticDescriptor Adt001 = new DiagnosticDescriptor(id: "ADT001", title: "Method is not partial", messageFormat: "The method should be declared as partial", category: "Design", DiagnosticSeverity.Error, isEnabledByDefault: true);
+        private static readonly DiagnosticDescriptor Adt002 = new DiagnosticDescriptor(id: "ADT002", title: "Method is not static", messageFormat: "The method should be declared as static", category: "Design", DiagnosticSeverity.Error, isEnabledByDefault: true);
 
         public void Initialize(IncrementalGeneratorInitializationContext context)
         {
-            var classes = context.SyntaxProvider
-                .CreateSyntaxProvider(IsClassWithAttributes, GetClassDeclarationSyntax)
-                .Where(cds => cds != null)
+            var methods = context.SyntaxProvider
+                .CreateSyntaxProvider(IsCandidateClass, GetClassDeclarationSyntax)
+                .Where(syntax => syntax != null)
                 .Collect();
 
-            var combined = context.CompilationProvider.Combine(classes);
+            var combined = context.CompilationProvider.Combine(methods);
 
             context.RegisterSourceOutput(combined, (ctx, source) => GenerateSource(source.Left, source.Right, ctx));
         }
 
-        private static bool IsClassWithAttributes(SyntaxNode node, CancellationToken cancellation)
+        private static bool IsCandidateClass(SyntaxNode node, CancellationToken cancellation)
         {
             cancellation.ThrowIfCancellationRequested();
 
-            if (node is ClassDeclarationSyntax classDeclarationSyntax)
+            if (!(node is ClassDeclarationSyntax classDeclarationSyntax))
             {
-                return classDeclarationSyntax.AttributeLists.Count > 0;
+                return false;
             }
 
-            return false;
+            return classDeclarationSyntax.Members
+                .Any(member => member.Kind() == SyntaxKind.MethodDeclaration && member.AttributeLists.Count > 0);
         }
 
         private static ClassDeclarationSyntax GetClassDeclarationSyntax(GeneratorSyntaxContext ctx, CancellationToken cancellation)
         {
-            var classDeclaration = (ClassDeclarationSyntax)ctx.Node;
+            var classDeclarationSyntax = (ClassDeclarationSyntax)ctx.Node;
 
-            foreach (var list in classDeclaration.AttributeLists)
+            foreach (var member in classDeclarationSyntax.Members)
             {
-                foreach (var attributeSyntax in list.Attributes)
+                cancellation.ThrowIfCancellationRequested();
+
+                if (IsFactoryMethod(member, ctx.SemanticModel))
                 {
-                    cancellation.ThrowIfCancellationRequested();
-
-                    if (!(ctx.SemanticModel.GetSymbolInfo(attributeSyntax).Symbol is IMethodSymbol attributeSymbol))
-                    {
-                        continue;
-                    }
-
-                    var fullName = attributeSymbol.ContainingType.ToDisplayString();
-
-                    if (fullName == DataTableAttribute)
-                    {
-                        return classDeclaration;
-                    }
+                    return classDeclarationSyntax;
                 }
             }
 
             return null;
+        }
+
+        private static bool IsFactoryMethod(MemberDeclarationSyntax memberDeclarationSyntax, SemanticModel model)
+        {
+            if (memberDeclarationSyntax.Kind() != SyntaxKind.MethodDeclaration)
+            {
+                return false;
+            }
+
+            return memberDeclarationSyntax.AttributeLists
+                .SelectMany(list => list.Attributes)
+                .Any(attribute => IsGenerateDataTableAttribute(attribute, model));
+        }
+
+        private static bool IsGenerateDataTableAttribute(SyntaxNode attributeSyntax, SemanticModel model)
+        {
+            if (!(model.GetSymbolInfo(attributeSyntax).Symbol is IMethodSymbol attributeSymbol))
+            {
+                return false;
+            }
+
+            var fullName = attributeSymbol.ContainingType.ToDisplayString();
+
+            return fullName == GenerateDataTableAttribute;
         }
 
         private static void GenerateSource(Compilation compilation, ImmutableArray<ClassDeclarationSyntax> classes, SourceProductionContext ctx)
@@ -75,35 +94,66 @@ namespace AutoDataTable
                 return;
             }
 
-            for (var i = 0; i < classes.Length; i++)
+            var generateDataTableSymbol = compilation.GetTypeByMetadataName(GenerateDataTableAttribute);
+            var dataTableSymbol = compilation.GetTypeByMetadataName(DataTableAttribute);
+            var dataColumnSymbol = compilation.GetTypeByMetadataName(DataColumnAttribute);
+
+            var entityTypes = new List<INamedTypeSymbol>();
+
+            foreach (var classDeclarationSyntax in classes)
             {
                 ctx.CancellationToken.ThrowIfCancellationRequested();
 
-                var classDeclarationSyntax = classes[i];
-
-                if (!IsPartial(classDeclarationSyntax))
-                {
-                    ctx.ReportDiagnostic(Diagnostic.Create(Adt001, classDeclarationSyntax.GetLocation()));
-
-                    continue;
-                }
-
                 var model = compilation.GetSemanticModel(classDeclarationSyntax.SyntaxTree);
 
-                if (!(model.GetDeclaredSymbol(classDeclarationSyntax) is INamedTypeSymbol classSymbol))
+                if (!(ModelExtensions.GetDeclaredSymbol(model, classDeclarationSyntax) is INamedTypeSymbol classSymbol))
                 {
                     continue;
                 }
 
                 var ns = GetNamespace(classDeclarationSyntax);
+                var methods = GetFactoryMethods(classDeclarationSyntax, model, ctx);
 
-                ctx.AddSource($"{classSymbol.Name}.g.cs", GenerateFactoryMethod(compilation, classSymbol, ns));
+                ctx.AddSource($"{classSymbol.Name}.g.cs", GenerateFactory(ns, classSymbol, generateDataTableSymbol,
+                    dataTableSymbol, dataColumnSymbol, methods, entityTypes));
             }
 
-            ctx.AddSource("DataTableExtensions.g.cs", GenerateDataTableExtensions(compilation, classes, ctx.CancellationToken));
+            ctx.AddSource("DataTableExtensions.g.cs", GenerateDataTableExtensions(dataColumnSymbol, entityTypes, ctx.CancellationToken));
         }
 
-        private static string GenerateFactoryMethod(Compilation compilation, INamedTypeSymbol classSymbol, string ns)
+        private static IEnumerable<IMethodSymbol> GetFactoryMethods(TypeDeclarationSyntax typeDeclarationSyntax,
+            SemanticModel model, SourceProductionContext ctx)
+        {
+            var methods = typeDeclarationSyntax.Members
+                .Where(member => IsFactoryMethod(member, model));
+
+            foreach (var methodDeclarationSyntax in methods)
+            {
+                ctx.CancellationToken.ThrowIfCancellationRequested();
+
+                var isPartial = methodDeclarationSyntax.Modifiers.Any(x => x.Text == "partial");
+                var isStatic = methodDeclarationSyntax.Modifiers.Any(x => x.Text == "static");
+
+                if (!isPartial)
+                {
+                    ctx.ReportDiagnostic(Diagnostic.Create(Adt001, methodDeclarationSyntax.GetLocation()));
+                }
+
+                if (!isStatic)
+                {
+                    ctx.ReportDiagnostic(Diagnostic.Create(Adt002, methodDeclarationSyntax.GetLocation()));
+                }
+
+                if (isPartial && isStatic)
+                {
+                    yield return ModelExtensions.GetDeclaredSymbol(model, methodDeclarationSyntax) as IMethodSymbol;
+                }
+            }
+        }
+
+        private static string GenerateFactory(string ns, ISymbol enclosingClass, ISymbol generateDataTableSymbol,
+            ISymbol dataTableSymbol, ISymbol dataColumnSymbol, IEnumerable<IMethodSymbol> methods,
+            List<INamedTypeSymbol> entityTypes)
         {
             var source = new StringBuilder();
 
@@ -111,16 +161,26 @@ namespace AutoDataTable
             {
                 writer.WriteLine("// Auto-generated code");
                 writer.WriteLine("using System.Data;");
+                writer.WriteLine("using AutoDataTable.Core;");
                 writer.WriteLine();
                 writer.WriteLine($"namespace {ns}");
                 writer.WriteLine("{");
                 writer.Indent++;
 
-                writer.WriteLine($"public partial class {classSymbol.Name}");
+                writer.WriteLine($"public partial class {enclosingClass.Name}");
                 writer.WriteLine("{");
                 writer.Indent++;
 
-                GenerateCreateMethod(writer, compilation, classSymbol);
+                var count = 0;
+
+                foreach (var methodSymbol in methods)
+                {
+                    count++;
+
+                    var entitySymbol = GenerateCreateMethod(count, writer, methodSymbol, generateDataTableSymbol, dataTableSymbol, dataColumnSymbol);
+
+                    entityTypes.Add(entitySymbol);
+                }
 
                 writer.Indent--;
                 writer.WriteLine("}");
@@ -132,21 +192,34 @@ namespace AutoDataTable
             return source.ToString();
         }
 
-        private static void GenerateCreateMethod(IndentedTextWriter writer, Compilation compilation, INamedTypeSymbol classSymbol)
+        private static INamedTypeSymbol GenerateCreateMethod(int current, IndentedTextWriter writer, ISymbol methodSymbol,
+            ISymbol generateDataTableSymbol, ISymbol dataTableSymbol, ISymbol dataColumnSymbol)
         {
-            writer.WriteLine("public static DataTable CreateDataTable()");
+            var classSymbol = GetTargetClass(methodSymbol, generateDataTableSymbol);
+            var factoryName = $"DataTableFactory_{current}";
+
+            writer.WriteLine();
+            writer.WriteLine($"private static partial DataTableFactory {methodSymbol.Name}() => {factoryName}.Instance;");
+
+            writer.WriteLine();
+            writer.WriteLine($"private sealed class {factoryName} : DataTableFactory");
             writer.WriteLine("{");
             writer.Indent++;
 
-            var tableName = GetTableName(compilation, classSymbol);
+            writer.WriteLine($"public static readonly {factoryName} Instance = new();");
+
+            writer.WriteLine();
+            writer.WriteLine("public override DataTable Create()");
+            writer.WriteLine("{");
+            writer.Indent++;
+
+            var tableName = GetTableName(dataTableSymbol, classSymbol);
 
             writer.WriteLine($"var table = new DataTable(\"{tableName}\");");
 
-            var attributeSymbol = compilation.GetTypeByMetadataName(DataColumnAttribute);
-
             foreach (var p in GetProperties(classSymbol))
             {
-                var columnName = GetColumnName(attributeSymbol, p);
+                var columnName = GetColumnName(dataColumnSymbol, p);
 
                 writer.WriteLine($"table.Columns.Add(new DataColumn(\"{columnName}\", typeof({p.Type.Name})));");
             }
@@ -156,9 +229,23 @@ namespace AutoDataTable
 
             writer.Indent--;
             writer.WriteLine("}");
+
+            writer.Indent--;
+            writer.WriteLine("}");
+
+            return classSymbol;
         }
 
-        private static string GenerateDataTableExtensions(Compilation compilation, ImmutableArray<ClassDeclarationSyntax> classes, CancellationToken cancellation)
+        private static INamedTypeSymbol GetTargetClass(ISymbol methodSymbol, ISymbol generateDataTableSymbol)
+        {
+            var attributeData = methodSymbol.GetAttributes()
+                .Single(data => generateDataTableSymbol.Equals(data.AttributeClass, SymbolEqualityComparer.Default));
+
+            return (INamedTypeSymbol)attributeData.ConstructorArguments[0].Value;
+        }
+
+        private static string GenerateDataTableExtensions(ISymbol dataColumnSymbol,
+            IReadOnlyList<INamedTypeSymbol> entityTypes, CancellationToken cancellation)
         {
             var source = new StringBuilder();
 
@@ -175,15 +262,15 @@ namespace AutoDataTable
                 writer.WriteLine("{");
                 writer.Indent++;
 
-                for (var i = 0; i < classes.Length; i++)
+                for (var i = 0; i < entityTypes.Count; i++)
                 {
                     cancellation.ThrowIfCancellationRequested();
 
-                    var classDeclarationSyntax = classes[i];
+                    var classSymbol = entityTypes[i];
 
-                    GenerateAddRowMethod(writer, compilation, classDeclarationSyntax);
+                    GenerateAddRowMethod(writer, classSymbol, dataColumnSymbol);
 
-                    if (i < classes.Length - 1)
+                    if (i < entityTypes.Count - 1)
                     {
                         writer.WriteLine();
                     }
@@ -199,16 +286,9 @@ namespace AutoDataTable
             return source.ToString();
         }
 
-        private static void GenerateAddRowMethod(IndentedTextWriter writer, Compilation compilation, SyntaxNode classDeclarationSyntax)
+        private static void GenerateAddRowMethod(IndentedTextWriter writer, INamespaceOrTypeSymbol classSymbol, ISymbol dataColumnSymbol)
         {
-            var model = compilation.GetSemanticModel(classDeclarationSyntax.SyntaxTree);
-
-            if (!(model.GetDeclaredSymbol(classDeclarationSyntax) is INamedTypeSymbol classSymbol))
-            {
-                return;
-            }
-
-            var ns = GetNamespace(classDeclarationSyntax);
+            var ns = classSymbol.ContainingNamespace?.Name;
             var fullType = string.IsNullOrEmpty(ns) ? classSymbol.Name : $"{ns}.{classSymbol.Name}";
 
             writer.WriteLine($"public static void AddRow(this DataTable table, {fullType} data)");
@@ -217,11 +297,9 @@ namespace AutoDataTable
 
             writer.WriteLine("var row = table.NewRow();");
 
-            var attributeSymbol = compilation.GetTypeByMetadataName(DataColumnAttribute);
-
             foreach (var property in GetProperties(classSymbol))
             {
-                var columnName = GetColumnName(attributeSymbol, property);
+                var columnName = GetColumnName(dataColumnSymbol, property);
 
                 writer.WriteLine($"row[\"{columnName}\"] = data.{property.Name};");
             }
@@ -233,7 +311,7 @@ namespace AutoDataTable
             writer.WriteLine("}");
         }
 
-        private static IEnumerable<IPropertySymbol> GetProperties(INamedTypeSymbol symbol)
+        private static IEnumerable<IPropertySymbol> GetProperties(INamespaceOrTypeSymbol symbol)
         {
             foreach (var member in symbol.GetMembers())
             {
@@ -278,15 +356,8 @@ namespace AutoDataTable
             return ns;
         }
 
-        private static string GetTableName(Compilation compilation, ISymbol classSymbol)
+        private static string GetTableName(ISymbol attributeSymbol, ISymbol classSymbol)
         {
-            var attributeSymbol = compilation.GetTypeByMetadataName(DataTableAttribute);
-
-            if (attributeSymbol is null)
-            {
-                return classSymbol.Name;
-            }
-
             foreach (var attributeData in classSymbol.GetAttributes())
             {
                 if (!attributeSymbol.Equals(attributeData.AttributeClass, SymbolEqualityComparer.Default))
@@ -332,21 +403,6 @@ namespace AutoDataTable
             }
 
             return propertySymbol.Name;
-        }
-
-        private static bool IsPartial(ClassDeclarationSyntax classDeclarationSyntax)
-        {
-            for (var i = 0; i < classDeclarationSyntax.Modifiers.Count; i++)
-            {
-                var modifier = classDeclarationSyntax.Modifiers[i];
-
-                if (modifier.Text == "partial")
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
     }
 }

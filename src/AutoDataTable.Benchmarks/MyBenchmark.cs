@@ -1,12 +1,16 @@
 ﻿using System.Data;
+using AutoDataTable.Core;
 using BenchmarkDotNet.Attributes;
 using Bogus;
 
 namespace AutoDataTable.Benchmarks;
 
 [MemoryDiagnoser]
-public class MyBenchmark
+public partial class MyBenchmark
 {
+    [GenerateDataTable(typeof(Customer))]
+    private static partial DataTableFactory CustomerFactory();
+
     private List<Customer> _customers;
 
     [GlobalSetup]
@@ -59,7 +63,7 @@ public class MyBenchmark
     [Benchmark]
     public DataTable Generated()
     {
-        var table = Customer.CreateDataTable();
+        var table = CustomerFactory().Create();
 
         _customers.ForEach(c => table.AddRow(c));
 

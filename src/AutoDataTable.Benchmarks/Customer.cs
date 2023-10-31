@@ -1,9 +1,9 @@
-﻿using AutoDataTable.Abstractions;
+﻿using AutoDataTable.Core;
 
 namespace AutoDataTable.Benchmarks;
 
 [DataTable]
-public partial class Customer
+public class Customer
 {
     public string FirstName { get; set; }
 

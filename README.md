@@ -26,15 +26,15 @@ Use the .NET CLI to install the package and its dependencies:
 
 ### Usage
 
-The classes targeted for conversion should have the `partial` modifier and the `DataTable` attribute:
+The classes or structs targeted for conversion should have the `DataTable` attribute:
 
    ```csharp
-   using AutoDataTable.Abstractions;
+   using AutoDataTable.Core;
    
    namespace MyProject;
    
    [DataTable]
-   public partial class Customer
+   public class Customer
    {
    }
    ```
@@ -44,7 +44,7 @@ can be overridden using the attribute's properties:
 
    ```csharp
    [DataTable("Customers")]
-   public partial class Customer
+   public class Customer
    {
    }
    ```
@@ -54,18 +54,36 @@ properties, it can be used to override the column name:
 
    ```csharp
    [DataTable]
-   public partial class Customer
+   public class Customer
    {
        [DataColumn("phone_number")]
        public string PhoneNumber { get; set; }
    }
    ```
 
-The `DataTable` instance can be created by calling the generated `CreateDataTable` static method on the class:
+To create a `DataTable` you need to first declare a factory method with the `static` and `partial` modifiers and no body.
+Then you should annotate the factory method with the `GenerateDataTable` attribute and provide as a parameter the type
+you wish to convert:
 
    ```csharp
-   var dataTable = Customer.CreateDataTable();
+   public partial class CustomerService
+   {
+       [GenerateDataTable(typeof(Customer))]
+       private static partial DataTableFactory CustomerFactory();
+       
+       public DataTable CreateCustomerTable()
+       {
+           return CustomerFactory().Create();
+       }
+   }
    ```
+
+---
+**NOTE**
+
+The factory method implementation returns a singleton, so you don't need to cache it.
+
+---
 
 To convert an object to a row, just call the `AddRow` method:
 
@@ -84,3 +102,15 @@ Pull requests are welcome, but please open an issue first to discuss your idea.
 ## License
 
 Distributed under the GPL-3.0 License. See `LICENSE` for more information.
+
+
+## Changelog
+
+### 1.1 (2023-10-30)
+
+* Added support for structs
+* Factory method can now be placed anywhere
+
+### 1.0 (2023-07-30)
+
+First release

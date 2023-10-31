@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace AutoDataTable.Abstractions
+namespace AutoDataTable.Core
 {
     [AttributeUsage(AttributeTargets.Property)]
     public class DataColumnAttribute : Attribute

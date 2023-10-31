@@ -1,8 +1,8 @@
 ﻿using System;
 
-namespace AutoDataTable.Abstractions
+namespace AutoDataTable.Core
 {
-    [AttributeUsage(AttributeTargets.Class)]
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
     public class DataTableAttribute : Attribute
     {
         public DataTableAttribute()
